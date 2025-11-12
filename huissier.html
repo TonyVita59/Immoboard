@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>Dossier huissier – ImmoBoard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#f6f8fb;color:#111827}
+  .wrap{max-width:900px;margin:24px auto;padding:0 12px}
+  .box{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px}
+  .btn{border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
+  .btn.blue{background:#0ea5e9;color:#fff}
+  .btn.gray{background:#e5e7eb}
+  a{color:#0e5aa6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Dossier huissier</h1>
+
+  <div id="info" class="box">Chargement…</div>
+
+  <div class="box" style="margin-top:12px">
+    <strong>Pièces à préparer (exemple) :</strong>
+    <ul style="margin-top:8px">
+      <li>Bail signé (PDF)</li>
+      <li>État des lieux</li>
+      <li>Historique des quittances / relances / mise en demeure</li>
+      <li>Justificatif d’identité bailleur</li>
+      <li>Relevé d’identité bancaire</li>
+    </ul>
+    <div style="margin-top:10px;display:flex;gap:8px">
+      <button id="mark" class="btn blue">Marquer “huissier transmis”</button>
+      <a class="btn gray" href="baux_min.html">← Retour aux baux</a>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY = 'immo_biens';
+
+function readAll(){ try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]} }
+function writeAll(a){ localStorage.setItem(KEY, JSON.stringify(a||[])) }
+
+const params = new URLSearchParams(location.search);
+const id = params.get('id');
+
+const info = document.getElementById('info');
+const mark = document.getElementById('mark');
+
+function load(){
+  const arr = readAll();
+  const b = arr.find(x=>x.id===id);
+  if(!b){
+    info.textContent = 'Bail introuvable.';
+    mark.disabled = true;
+    return;
+  }
+  const jours = b.retardDepuis ? Math.max(0, Math.floor((Date.now()-Date.parse(b.retardDepuis))/86400000)) : 0;
+  info.innerHTML = `
+    <strong>Bien :</strong> ${b.bien || '—'}<br>
+    <strong>Locataire :</strong> ${b.locataire || '—'}<br>
+    <strong>Loyer :</strong> ${(Number(b.loyer)||0).toLocaleString('fr-FR')} €<br>
+    <strong>Statut actuel :</strong> ${b.miseEnDemeureEnvoyee?'Mise en demeure envoyée':'—'}<br>
+    <strong>Retard depuis :</strong> ${jours} jour(s)
+  `;
+  if (b.huissierTransmis){
+    mark.textContent = 'Huissier déjà transmis';
+    mark.disabled = true;
+  }
+}
+
+mark.onclick = ()=>{
+  const arr = readAll();
+  const i = arr.findIndex(x=>x.id===id);
+  if(i>=0){
+    arr[i].huissierTransmis = true;
+    writeAll(arr);
+  }
+  // Retour immédiat au tableau
+  location.href = 'baux_min.html';
+};
+
+document.addEventListener('DOMContentLoaded', load);
+</script>
+</body>
+</html>

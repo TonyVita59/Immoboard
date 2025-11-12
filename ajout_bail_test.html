@@ -1,0 +1,162 @@
+<!DOCTYPE html>  
+<html lang="fr">  
+<head>  
+<meta charset="UTF-8" />  
+<title>ImmoBoard — TEST ajout de bail (seul, avec retour)</title>  
+<meta name="viewport" content="width=device-width, initial-scale=1" />  
+<style>  
+  body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#f6f8fb;color:#111827}  
+  .wrap{max-width:1100px;margin:28px auto;padding:0 16px}  
+  h1{margin:0 0 14px}  
+  .tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}  
+  .btn{border:0;border-radius:8px;padding:7px 12px;cursor:pointer}  
+  .btn.blue{background:#0ea5e9;color:#fff}  
+  .btn.red{background:#ef4444;color:#fff}  
+  .btn.gray{background:#e5e7eb}  
+  .muted{color:#6b7280}  
+  table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden}  
+  thead th{background:#0f172a;color:#cbd5e1;padding:10px;text-align:left;font-weight:700}  
+  tbody td{padding:10px;border-top:1px solid #ececec;vertical-align:top}  
+  form.card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:12px;margin:12px 0}  
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}  
+  .col-6{grid-column:span 6}.col-4{grid-column:span 4}.col-12{grid-column:span 12}  
+  label{font-weight:600;display:block;margin-bottom:6px}  
+  input{width:100%;padding:8px;border:1px solid #dcdcdc;border-radius:8px}  
+  .form-actions{display:flex;gap:8px;margin-top:10px}  
+</style>  
+</head>  
+<body>  
+<div class="wrap">  
+  <h1>TEST — Ajout de bail (seul)</h1>  
+  <div class="tools">  
+    <button class="btn blue" id="add-btn">+ Ajouter un bail</button>  
+    <button class="btn red" id="wipe">Vider (localStorage)</button>  
+    <span class="muted">Clé stockage : <code>immo_biens</code></span>  
+  </div>  
+  
+  <!-- Formulaire ajout -->  
+  <form id="add-form" class="card" style="display:none">  
+    <div class="grid">  
+      <div class="col-6">  
+        <label>Bien (adresse)</label>  
+        <input id="f-bien" placeholder="10 rue des Lilas, Paris" required>  
+      </div>  
+      <div class="col-6">  
+        <label>Locataire</label>  
+        <input id="f-locataire" placeholder="Dupont" required>  
+      </div>  
+      <div class="col-4">  
+        <label>Loyer (€)</label>  
+        <input id="f-loyer" type="number" min="0" step="1" required>  
+      </div>  
+      <div class="col-4">  
+        <label>Charges (€)</label>  
+        <input id="f-charges" type="number" min="0" step="1" value="0">  
+      </div>  
+      <div class="col-4">  
+        <label>Date prévue (échéance)</label>  
+        <input id="f-date" type="date" required>  
+      </div>  
+      <div class="col-12 form-actions">  
+        <button class="btn blue" type="submit">Valider</button>  
+        <button class="btn gray" type="button" id="cancel-btn">Annuler</button>  
+      </div>  
+    </div>  
+  </form>  
+  
+  <table>  
+    <thead>  
+      <tr>  
+        <th>Bien</th>  
+        <th>Locataire</th>  
+        <th>Loyer</th>  
+        <th>Charges</th>  
+        <th>Échéance</th>  
+        <th>Paiement</th>  
+        <th>Actions</th>  
+      </tr>  
+    </thead>  
+    <tbody id="tbody"></tbody>  
+  </table>  
+</div>  
+  
+<script>  
+/* Storage utils */  
+const KEY='immo_biens';  
+const $=s=>document.querySelector(s);  
+const fmt=n=>(Number(n)||0).toLocaleString('fr-FR')+' €';  
+function readAll(){try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]}}  
+function writeAll(a){localStorage.setItem(KEY,JSON.stringify(a||[]))}  
+  
+/* Rendu minimal */  
+const tbody=$('#tbody');  
+function render(){  
+  const arr=readAll();  
+  tbody.innerHTML='';  
+  arr.forEach(b=>{  
+    const tr=document.createElement('tr');  
+    tr.dataset.id=b.id;  
+    tr.innerHTML=`  
+      <td>${b.bien||''}</td>  
+      <td>${b.locataire||''}</td>  
+      <td>${fmt(b.loyer)}</td>  
+      <td>${fmt(b.charges||0)}</td>  
+      <td>${b.datePrevue||'—'}</td>  
+      <td>${b.paiement||'A_valider'}</td>  
+      <td><button class="btn red act-del">Supprimer</button></td>  
+    `;  
+    tbody.appendChild(tr);  
+  });  
+}  
+  
+/* Formulaire */  
+$('#add-btn').onclick=()=>{  
+  const f=$('#add-form');  
+  f.style.display = f.style.display==='none' ? 'block' : 'none';  
+};  
+$('#add-form').addEventListener('submit',e=>{  
+  e.preventDefault();  
+  const arr=readAll();  
+  arr.push({  
+    id:'b_'+Date.now(),  
+    bien:$('#f-bien').value.trim(),  
+    locataire:$('#f-locataire').value.trim(),  
+    loyer:Number($('#f-loyer').value||0),  
+    charges:Number($('#f-charges').value||0),  
+    datePrevue:$('#f-date').value,  
+    paiement:'A_valider',  
+    lastPaidPeriod:null,  
+    retardDepuis:null,  
+    relanceEnvoyee:false,  
+    miseEnDemeureEnvoyee:false,  
+    huissierTransmis:false,  
+    avocatTransmis:false  
+  });  
+  writeAll(arr);  
+  
+  const params = new URLSearchParams(location.search);  
+  const back = params.get('return') || 'baux_min.html';  
+  location.href = back;  
+});  
+  
+/* Bouton Annuler → retour immédiat */  
+$('#cancel-btn').onclick=()=>{  
+  const params = new URLSearchParams(location.search);  
+  const back = params.get('return') || 'baux_min.html';  
+  location.href = back;  
+};  
+  
+/* Delete + vider */  
+tbody.addEventListener('click',e=>{  
+  if(!e.target.classList.contains('act-del')) return;  
+  const id=e.target.closest('tr').dataset.id;  
+  writeAll(readAll().filter(x=>x.id!==id));  
+  render();  
+});  
+$('#wipe').onclick=()=>{localStorage.removeItem(KEY);render();};  
+  
+/* Start */  
+document.addEventListener('DOMContentLoaded',render);  
+</script>  
+</body>  
+</html>

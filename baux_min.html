@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>ImmoBoard — baux_min</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#f6f8fb;color:#111827}
+    .wrap{max-width:1100px;margin:28px auto;padding:0 16px}
+    h1{margin:0 0 14px}
+    .tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+    .btn{border:0;border-radius:8px;padding:7px 12px;cursor:pointer}
+    .btn.blue{background:#0ea5e9;color:#fff}
+    .btn.gray{background:#e5e7eb}
+    .btn.red{background:#ef4444;color:#fff}
+    .btn.warn{background:#f59e0b;color:#fff}
+    .btn.purple{background:#8b5cf6;color:#fff}
+    .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#eef2ff}
+    .ok{background:#dcfce7}
+    .warn-b{background:#fde68a}
+    .info{background:#dbeafe}
+    .violet{background:#ede9fe}
+    .rose{background:#ffe4e6}
+    .muted{color:#6b7280}
+    table{width:100%;border-collapse:collapse;background:#fff;border-radius:12px;overflow:hidden}
+    thead th{background:#0f172a;color:#cbd5e1;padding:10px;text-align:left;font-weight:700}
+    tbody td{padding:10px;border-top:1px solid #ececec;vertical-align:top}
+    .actions .btn{margin-right:6px}
+    /* Modals */
+    .backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;align-items:center;justify-content:center;z-index:9999}
+    .modal{background:#fff;max-width:700px;width:94%;border-radius:12px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .modal h2{margin:0 0 8px}
+    .box{white-space:pre-line;border:1px solid #e5e7eb;background:#fafafa;border-radius:8px;padding:12px;margin:8px 0}
+    .modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+    /* Form edit */
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
+    .col-6{grid-column:span 6}.col-4{grid-column:span 4}.col-3{grid-column:span 3}.col-12{grid-column:span 12}
+    label{font-weight:600;display:block;margin-bottom:6px}
+    input{width:100%;padding:8px;border:1px solid #dcdcdc;border-radius:8px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Gestion des baux — baux_min</h1>
+  <div class="tools">
+    <a class="btn blue" href="ajout_bail_test.html?return=baux_min.html">+ Ajouter un bail</a>
+    <button class="btn blue" id="demo">+ Démo</button>
+    <button class="btn gray" id="btn-prof">Profil bailleur</button>
+    <button class="btn red" id="wipe">Vider</button>
+    <span class="muted">Période : <span id="periode">—</span></span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Bien</th>
+        <th>Locataire</th>
+        <th>Loyer</th>
+        <th>Charges</th>
+        <th>Mois de retard</th>
+        <th>Total dû</th>
+        <th>Échéance</th>
+        <th>Jours de retard (mois en cours)</th>
+        <th>Paiement</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<!-- Modal QUITTANCE -->
+<div class="backdrop" id="mod-q">
+  <div class="modal">
+    <h2>Quittance de loyer</h2>
+    <div class="box" id="q-prev"></div>
+    <div class="modal-actions">
+      <button class="btn gray" id="q-cancel">Annuler</button>
+      <button class="btn blue" id="q-send">Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal RELANCE -->
+<div class="backdrop" id="mod-r">
+  <div class="modal">
+    <h2>Relance de loyer</h2>
+    <div class="box" id="r-prev"></div>
+    <div class="modal-actions">
+      <button class="btn gray" id="r-cancel">Annuler</button>
+      <button class="btn warn" id="r-send">Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal MISE EN DEMEURE -->
+<div class="backdrop" id="mod-md">
+  <div class="modal">
+    <h2>Mise en demeure</h2>
+    <div class="box" id="md-prev"></div>
+    <div class="modal-actions">
+      <button class="btn gray" id="md-cancel">Annuler</button>
+      <button class="btn blue" id="md-send">Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal EDITION BAIL -->
+<div class="backdrop" id="mod-edit">
+  <div class="modal">
+    <h2>Modifier le bail</h2>
+    <form id="edit-form">
+      <div class="grid">
+        <div class="col-6">
+          <label>Bien (adresse)</label>
+          <input id="e-bien" required>
+        </div>
+        <div class="col-6">
+          <label>Locataire</label>
+          <input id="e-locataire" required>
+        </div>
+        <div class="col-3">
+          <label>Loyer (€)</label>
+          <input id="e-loyer" type="number" min="0" step="1" required>
+        </div>
+        <div class="col-3">
+          <label>Charges (€)</label>
+          <input id="e-charges" type="number" min="0" step="1">
+        </div>
+        <div class="col-4">
+          <label>Date prévue (échéance)</label>
+          <input id="e-date" type="date" required>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn gray" type="button" id="e-cancel">Annuler</button>
+        <button class="btn blue" type="submit">Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- jsPDF -->
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<script>
+/* ========= utils / storage ========= */
+const KEY = 'immo_biens';
+const KEY_PROFILE = 'immo_profil_bailleur';
+const $ = sel => document.querySelector(sel);
+const fmtEuro = n => (Number(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2, maximumFractionDigits:2})+' €';
+const today = () => new Date();
+const yyyymm = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+const curPeriod = () => yyyymm(today());
+
+function readAll(){ try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]} }
+function writeAll(a){ localStorage.setItem(KEY, JSON.stringify(a||[])) }
+function readProfile(){ try{return JSON.parse(localStorage.getItem(KEY_PROFILE)||'{}')}catch{return{}} }
+function isProfileComplete(p){ return !!(p.nom && p.email && p.adresse1 && p.cp && p.ville); }
+
+/* ========= états modals ========= */
+let currentId = null;      // quittance/relance/MD
+let currentEditId = null;  // édition
+
+/* ========= Références DOM modals ========= */
+const modQ   = document.getElementById('mod-q');
+const qPrev  = document.getElementById('q-prev');
+const qCancel= document.getElementById('q-cancel');
+const qSend  = document.getElementById('q-send');
+
+const modR   = document.getElementById('mod-r');
+const rPrev  = document.getElementById('r-prev');
+const rCancel= document.getElementById('r-cancel');
+const rSend  = document.getElementById('r-send');
+
+const modMD  = document.getElementById('mod-md');
+const mdPrev = document.getElementById('md-prev');
+const mdCancel=document.getElementById('md-cancel');
+const mdSend = document.getElementById('md-send');
+
+/* ========= helpers ========= */
+function nextDueDate(b){
+  if (!b?.datePrevue) return null;
+  const base = new Date(b.datePrevue);
+  if (isNaN(base)) return null;
+  const targetDay = base.getDate();
+  const now = today();
+  const cand = new Date(now.getFullYear(), now.getMonth(), targetDay);
+  if (cand <= now) return new Date(now.getFullYear(), now.getMonth()+1, targetDay);
+  return cand;
+}
+function isPreUnlockWindow(b){
+  const nd = nextDueDate(b);
+  if (!nd) return false;
+  const diffDays = (nd - today()) / 86400000;
+  return diffDays <= 5;
+}
+function isLocked(b){
+  const paidThisMonth = b.lastPaidPeriod && b.lastPaidPeriod===curPeriod();
+  if (!paidThisMonth) return false;
+  return !isPreUnlockWindow(b);
+}
+
+/* ============ Jours de retard (mois en cours, depuis jour d'échéance) ============ */
+function daysLate(b){
+  if (b.paiement !== 'Retard' && !b.miseEnDemeureEnvoyee && !b.huissierTransmis && !b.avocatTransmis) return '';
+  if (!b.datePrevue) return 0;
+
+  const now = new Date();
+  const base = new Date(b.datePrevue);
+  if (isNaN(base)) return 0;
+
+  const dueDay = base.getDate();
+  const lastDayThisMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const curDue = new Date(now.getFullYear(), now.getMonth(), Math.min(dueDay, lastDayThisMonth));
+
+  if (now < curDue) return 0;
+
+  const diffDays = Math.floor((now - curDue) / 86400000);
+  return diffDays < 0 ? 0 : diffDays;
+}
+
+/* ==== Retard en mois & Total dû (loyer + charges) ==== */
+function monthsLate(b){
+  if (!(b.paiement === 'Retard' || b.miseEnDemeureEnvoyee || b.huissierTransmis || b.avocatTransmis)) return 0;
+  if (!b.datePrevue) return 0;
+  const due = new Date(b.datePrevue);
+  const now = new Date();
+  if (isNaN(due) || due > now) return 0;
+  let m = (now.getFullYear() - due.getFullYear())*12 + (now.getMonth() - due.getMonth()) + 1;
+  return Math.max(1, m);
+}
+function totalDue(b){
+  const l = Number(b.loyer)||0;
+  const c = Number(b.charges)||0;
+  return monthsLate(b) * (l + c);
+}
+
+/* ========= Bouton Profil bailleur (indicateur) ========= */
+function updateProfilBtn(){
+  const btn = document.getElementById('btn-prof');
+  const p = readProfile();
+  const ok = isProfileComplete(p);
+  btn.textContent = ok ? 'Profil bailleur ✅' : 'Profil bailleur ⚠️';
+  btn.style.background = ok ? '#e5e7eb' : '#fde68a';
+  btn.style.color = ok ? '#111827' : '#7c2d12';
+}
+document.getElementById('btn-prof').onclick = ()=>{
+  const p = readProfile();
+  if (!isProfileComplete(p)){
+    alert('Profil bailleur incomplet. Merci de le compléter.');
+  }
+  location.href = 'profil_bailleur.html?return=baux_min.html';
+};
+
+/* ========= Rendu ========= */
+const tbody = $('#tbody');
+const periodeEl = $('#periode');
+
+function render(){
+  periodeEl.textContent = curPeriod();
+  const arr = readAll();
+  tbody.innerHTML = '';
+  arr.forEach(b=>{
+    const tr = document.createElement('tr');
+    tr.dataset.id = b.id;
+
+    // Statut Paiement
+    let payHtml = '';
+    if (b.avocatTransmis){
+      payHtml = '<span class="badge rose">Dossier avocat transmis</span>';
+    } else if (b.huissierTransmis){
+      payHtml = '<span class="badge violet">Dossier huissier transmis</span>';
+    } else if (b.miseEnDemeureEnvoyee){
+      payHtml = '<span class="badge info">Mise en demeure envoyée</span>';
+    } else if (b.paiement === 'Paye'){
+      payHtml = '<span class="badge ok">Payé</span>';
+    } else if (b.paiement === 'Retard'){
+      payHtml = '<span class="badge warn-b">Retard</span> ' + (b.relanceEnvoyee?'<span class="muted">Mail envoyé ✔</span>':'');
+    } else {
+      payHtml = '<span class="badge">À valider</span>';
+    }
+
+    // Actions
+    const locked = isLocked(b);
+    let acts = '';
+    const btnDel = '<button class="btn red act-del">Supprimer</button> ';
+
+    if (!locked){
+      acts += '<button class="btn blue act-pay">Payer</button> ';
+      if (!b.avocatTransmis){
+        if (!b.relanceEnvoyee){
+          acts += '<button class="btn warn act-retard">Retard</button> ';
+        } else if (!b.miseEnDemeureEnvoyee){
+          acts += '<button class="btn gray act-md">Mise en demeure</button> ';
+        } else if (!b.huissierTransmis){
+          acts += `<a class="btn gray" href="huissier.html?id=${encodeURIComponent(b.id)}">Dossier huissier</a> `;
+        } else {
+          acts += `<a class="btn purple" href="avocat.html?id=${encodeURIComponent(b.id)}">Dossier avocat / tribunal</a> `;
+        }
+      } else {
+        acts += '<span class="muted">Contentieux avocat</span> ';
+      }
+      acts += '<button class="btn gray act-edit">Modifier</button> ' + btnDel;
+    } else {
+      const nd = nextDueDate(b);
+      const ndTxt = nd ? nd.toLocaleDateString('fr-FR') : 'prochaine échéance';
+      acts = `<span class="muted">Verrouillé (réouverture auto J-5 avant ${ndTxt})</span> `
+           + '<button class="btn gray act-edit">Modifier</button> ' + btnDel;
+    }
+
+    const loyerNum = Number(b.loyer)||0;
+    const chargesNum = Number(b.charges)||0;
+
+    tr.innerHTML = `
+      <td>${b.bien||''}</td>
+      <td>${b.locataire||''}</td>
+      <td>${fmtEuro(loyerNum)}</td>
+      <td>${fmtEuro(chargesNum)}</td>
+      <td>${monthsLate(b)}</td>
+      <td>${fmtEuro(totalDue(b))}</td>
+      <td>${b.datePrevue||'—'}</td>
+      <td>${daysLate(b)}</td>
+      <td>${payHtml}</td>
+      <td class="actions">${acts}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  updateProfilBtn();
+}
+
+/* ========= Démo / Vider ========= */
+document.getElementById('demo').onclick = ()=>{
+  const now = new Date();
+  const isoDaysAgo = (n)=> new Date(now.getTime() - n*86400000).toISOString();
+  writeAll([
+    {id:'b1', bien:'10 rue Démo, Paris', locataire:'Durand', loyer:900, charges:60, datePrevue:`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-05`, paiement:'Paye', lastPaidPeriod:yyyymm(now), relanceEnvoyee:false, miseEnDemeureEnvoyee:false, huissierTransmis:false, avocatTransmis:false, retardDepuis:null},
+    {id:'b2', bien:'25 rue des Lilas, Lyon', locataire:'Martin', loyer:780, charges:0, datePrevue:`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-10`, paiement:'A_valider', lastPaidPeriod:null, relanceEnvoyee:false, miseEnDemeureEnvoyee:false, huissierTransmis:false, avocatTransmis:false, retardDepuis:null},
+    {id:'b3', bien:'5 avenue des Roses, Lille', locataire:'Bernard', loyer:650, charges:40, datePrevue:`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`, paiement:'Retard', lastPaidPeriod:null, relanceEnvoyee:false, miseEnDemeureEnvoyee:false, huissierTransmis:false, avocatTransmis:false, retardDepuis: isoDaysAgo(3)},
+    {id:'b4', bien:'99 bd République, Marseille', locataire:'Moreau', loyer:1200, charges:80, datePrevue:`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-03`, paiement:'Retard', lastPaidPeriod:null, relanceEnvoyee:true, miseEnDemeureEnvoyee:true, huissierTransmis:false, avocatTransmis:false, retardDepuis: isoDaysAgo(7)},
+    {id:'b5', bien:'8 rue Victor Hugo, Toulouse', locataire:'Lefevre', loyer:990, charges:50, datePrevue:`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-02`, paiement:'Retard', lastPaidPeriod:null, relanceEnvoyee:true, miseEnDemeureEnvoyee:true, huissierTransmis:true, avocatTransmis:false, retardDepuis: isoDaysAgo(12)},
+    {id:'b6', bien:'12 rue de la Paix, Nantes', locataire:'Petit', loyer:820, charges:0, datePrevue:`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-08`, paiement:'Retard', lastPaidPeriod:null, relanceEnvoyee:true, miseEnDemeureEnvoyee:true, huissierTransmis:true, avocatTransmis:true, retardDepuis: isoDaysAgo(20)}
+  ]);
+  render();
+};
+document.getElementById('wipe').onclick = ()=>{ localStorage.removeItem(KEY); render(); };
+
+/* ========= PDF utils ========= */
+function eurosEnLettres(val){
+  const n = Math.round((Number(val)||0)*100);
+  const u = ["zéro","un","deux","trois","quatre","cinq","six","sept","huit","neuf"];
+  const d = ["","dix","vingt","trente","quarante","cinquante","soixante","soixante","quatre-vingt","quatre-vingt"];
+  const te = ["dix","onze","douze","treize","quatorze","quinze","seize","dix-sept","dix-huit","dix-neuf"];
+  function centaine(x){
+    let s=""; const c=Math.floor(x/100), r=x%100;
+    if(c>0){
+      if(c===1) s+="cent";
+      else s+= (c===8 && r===0) ? "huit cents" : u[c]+" cent";
+      if(r>0) s+=" ";
+    }
+    if(r>0){
+      if(r<10) s+=u[r];
+      else if(r<20) s+=te[r-10];
+      else{
+        let dd=Math.floor(r/10), rr=r%10;
+        let base=d[dd];
+        if(dd===7||dd===9){ base=d[dd-1]; rr+=10; }
+        if(rr===1 && (dd===1||dd===7||dd===9||dd===3||dd===4||dd===5||dd===6)) s+= base+" et un";
+        else if(rr>0) s+= base+"-"+(rr<10?u[rr]:te[rr-10]);
+        else s+= base+(dd===8?"s":"");
+      }
+    }
+    return s || "zéro";
+  }
+  function bloc(x){
+    if(x===0) return "zéro";
+    const milliards=Math.floor(x/1e9), resteM=x%1e9;
+    const millions=Math.floor(resteM/1e6), resteMi=resteM%1e6;
+    const milliers=Math.floor(resteMi/1e3), reste=resteMi%1e3;
+    const parts=[];
+    if(milliards>0) parts.push(milliards>1?centaine(milliards)+" milliards":"un milliard");
+    if(millions>0)  parts.push(millions>1?centaine(millions)+" millions":"un million");
+    if(milliers>0)  parts.push(milliers>1?centaine(milliers)+" mille":"mille");
+    if(reste>0)     parts.push(centaine(reste));
+    return parts.join(" ");
+  }
+  const euros=Math.floor(n/100), cents=n%100;
+  const eTxt=bloc(euros)+" euro"+(euros>1?"s":"");
+  const cTxt=cents===0?"zéro centime":centaine(cents)+" centime"+(cents>1?"s":"");
+  return eTxt+" et "+cTxt;
+}
+function roundedRect(doc, x,y,w,h,r){
+  doc.roundedRect(x,y,w,h,r,r,"S");
+}
+
+/* ========= PDF QUITTANCE (loyer + charges) ========= */
+function generateQuittancePDF(b, profile){
+  const { jsPDF } = window.jspdf || {};
+  if(!jsPDF){ alert('Impossible de générer le PDF (jsPDF manquant).'); return; }
+  const p = profile || {};
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const M = 16, W = 210, H = 297;
+
+  const main = [14,165,233];
+  const text = [17,24,39];
+  const grid = [229,231,235];
+
+  const loyerNum = Number(b.loyer)||0;
+  const chargesNum = Number(b.charges)||0;
+  const totalNum = loyerNum + chargesNum;
+
+  doc.setTextColor(...text);
+  doc.setFillColor(...main);
+  doc.rect(0, 0, W, 28, "F");
+  doc.setFont("helvetica","bold"); doc.setFontSize(18);
+  doc.setTextColor(255,255,255);
+  doc.text("QUITTANCE DE LOYER", M, 17);
+  const moisLong = (b.datePrevue ? new Date(b.datePrevue) : new Date())
+    .toLocaleDateString("fr-FR",{month:"long",year:"numeric"}).toUpperCase();
+  doc.setFontSize(11); doc.text(moisLong, W-M, 17, {align:"right"});
+
+  let y = 36;
+  doc.setTextColor(...text);
+  doc.setFont("helvetica","bold"); doc.setFontSize(12);
+  doc.text("Bailleur", M, y);
+  doc.text("Locataire", W/2, y);
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  y += 6;
+
+  const bailleurLignes = [
+    p.nom || "",
+    [p.adresse1, p.adresse2].filter(Boolean).join(", "),
+    [p.cp, p.ville].filter(Boolean).join(" "),
+    p.email ? `Email : ${p.email}` : "",
+    p.tel ? `Tél : ${p.tel}` : ""
+  ].filter(Boolean);
+
+  const locLignes = [
+    b.locataire || "",
+    (b.bien || ""),
+    b.datePrevue ? `Échéance : ${new Date(b.datePrevue).toLocaleDateString("fr-FR")}` : ""
+  ].filter(Boolean);
+
+  bailleurLignes.forEach((l,i)=> doc.text(l, M, y + i*6));
+  locLignes   .forEach((l,i)=> doc.text(l, W/2, y + i*6));
+  y += Math.max(bailleurLignes.length, locLignes.length)*6 + 8;
+
+  const col1 = M, col2 = col1+80, col3 = W-M;
+  doc.setFont("helvetica","bold"); doc.setFontSize(11);
+  doc.text("Détail", M, y); y+=4;
+  doc.setDrawColor(...grid);
+  roundedRect(doc, M, y, W-2*M, (chargesNum>0? 19 : 10), 2);
+  doc.text("Libellé", col1+3, y+6);
+  doc.text("Période", col2+3, y+6);
+  doc.text("Montant (€)", col3-3, y+6, {align:"right"});
+  y += 12;
+
+  const periodeStr = (()=>{
+    const base = b.datePrevue ? new Date(b.datePrevue) : new Date();
+    const d1 = new Date(base.getFullYear(), base.getMonth(), 1);
+    const d2 = new Date(base.getFullYear(), base.getMonth()+1, 0);
+    const fmt = d=> d.toLocaleDateString("fr-FR");
+    return `${fmt(d1)} -> ${fmt(d2)}`;
+  })();
+
+  // Loyer
+  roundedRect(doc, M, y, W-2*M, 10, 2);
+  doc.setFont("helvetica","normal");
+  doc.text("Loyer", col1+3, y+6);
+  doc.text(periodeStr, col2+3, y+6);
+  doc.text(loyerNum.toLocaleString("fr-FR",{minimumFractionDigits:2}), col3-3, y+6, {align:"right"});
+  y += 12;
+
+  // Charges (si > 0)
+  if (chargesNum > 0){
+    roundedRect(doc, M, y-2, W-2*M, 10, 2);
+    doc.text("Charges", col1+3, y+4);
+    doc.text(periodeStr, col2+3, y+4);
+    doc.text(chargesNum.toLocaleString("fr-FR",{minimumFractionDigits:2}), col3-3, y+4, {align:"right"});
+    y += 12;
+  }
+
+  // Total payé
+  doc.setFont("helvetica","bold");
+  roundedRect(doc, M, y, W-2*M, 10, 2);
+  doc.text("TOTAL PAYÉ", col1+3, y+6);
+  doc.text(totalNum.toLocaleString("fr-FR",{minimumFractionDigits:2}), col3-3, y+6, {align:"right"});
+  y += 16;
+
+  // Montant en lettres (sur total)
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  const enLettres = eurosEnLettres(totalNum);
+  doc.text("Montant en toutes lettres :", M, y);
+  doc.setFont("helvetica","bold");
+  doc.text(enLettres.charAt(0).toUpperCase()+enLettres.slice(1)+".", M, y+7);
+  y += 16;
+
+  doc.setFont("helvetica","normal");
+  doc.text("Le bailleur certifie avoir reçu la somme ci-dessus pour le loyer et charges", M, y);
+  doc.text("de la période indiquée.", M, y+6);
+  y += 14;
+
+  const lieu = (readProfile().ville || "");
+  const dateStr = new Date().toLocaleDateString("fr-FR");
+  doc.text(`Fait à ${lieu||"__________"}, le ${dateStr}.`, M, y);
+
+  const p2 = readProfile();
+  if(p2.signatureDataUrl){
+    try{
+      doc.text("Signature du bailleur :", M, y+10);
+      doc.addImage(p2.signatureDataUrl, "PNG", M+55, y+2, 45, 20);
+      y += 26;
+    }catch(e){ y += 12; }
+  } else {
+    y += 12;
+  }
+
+  const footer = [
+    p2.iban ? `IBAN : ${p2.iban}` : null,
+    p2.siren ? `SIREN/SIRET : ${p2.siren}` : null
+  ].filter(Boolean).join("   |   ");
+
+  if(footer){
+    doc.setDrawColor(...main);
+    doc.line(M, H-22, W-M, H-22);
+    doc.setFont("helvetica","normal"); doc.setFontSize(10);
+    doc.text(footer, W/2, H-15, {align:"center"});
+  }
+
+  const filename = `quittance_${(b.locataire||'locataire').toString().toLowerCase().replace(/\s+/g,'-')}_${(b.datePrevue? new Date(b.datePrevue).toLocaleDateString('fr-FR',{month:'short'}) : 'mois')}_${(b.datePrevue? new Date(b.datePrevue).getFullYear() : new Date().getFullYear())}.pdf`;
+  doc.save(filename);
+}
+
+/* ========= PDF RELANCE (montant = loyer + charges) ========= */
+function generateRelancePDF(b, profile){
+  const { jsPDF } = window.jspdf || {};
+  if(!jsPDF){ alert('Impossible de générer le PDF (jsPDF manquant).'); return; }
+  const p = profile || {};
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const M = 16, W = 210, H = 297;
+
+  const main = [245,158,11];
+  const text = [17,24,39];
+  const grid = [229,231,235];
+
+  const loyerNum = Number(b.loyer)||0;
+  const chargesNum = Number(b.charges)||0;
+  const totalNum = loyerNum + chargesNum;
+
+  // Bandeau
+  doc.setFillColor(...main);
+  doc.rect(0, 0, W, 28, "F");
+  doc.setTextColor(255,255,255);
+  doc.setFont("helvetica","bold"); doc.setFontSize(18);
+  doc.text("RELANCE DE LOYER", M, 17);
+
+  const moisLong = (b.datePrevue ? new Date(b.datePrevue) : new Date())
+    .toLocaleDateString("fr-FR",{month:"long",year:"numeric"}).toUpperCase();
+  doc.setFontSize(11);
+  doc.text(moisLong, W-M, 17, {align:"right"});
+
+  doc.setTextColor(...text);
+  let y = 36;
+
+  // Coordonnées
+  doc.setFont("helvetica","bold"); doc.setFontSize(12);
+  doc.text("Bailleur", M, y);
+  doc.text("Locataire", W/2, y);
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  y += 6;
+
+  const bailleurLignes = [
+    p.nom || "",
+    [p.adresse1, p.adresse2].filter(Boolean).join(", "),
+    [p.cp, p.ville].filter(Boolean).join(" "),
+    p.email ? `Email : ${p.email}` : "",
+    p.tel ? `Tél : ${p.tel}` : ""
+  ].filter(Boolean);
+
+  const locLignes = [
+    b.locataire || "",
+    (b.bien || ""),
+    b.datePrevue ? `Échéance prévue : ${new Date(b.datePrevue).toLocaleDateString("fr-FR")}` : ""
+  ].filter(Boolean);
+
+  bailleurLignes.forEach((l,i)=> doc.text(l, M, y + i*6));
+  locLignes   .forEach((l,i)=> doc.text(l, W/2, y + i*6));
+  y += Math.max(bailleurLignes.length, locLignes.length)*6 + 10;
+
+  // Objet
+  doc.setFont("helvetica","bold"); doc.setFontSize(12);
+  doc.text("Objet : Relance de paiement — Loyer " + moisLong.toLowerCase(), M, y);
+  y += 8;
+
+  // Intro
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  const intro = [
+    `Madame, Monsieur ${b.locataire || ""},`,
+    ``,
+    `Sauf erreur de notre part, nous n'avons pas encore reçu le règlement de votre loyer pour le logement situé :`,
+    `${b.bien || ""}.`,
+    `Nous vous invitons à régulariser la situation dans les meilleurs délais ou à nous informer si le paiement a déjà été effectué.`
+  ];
+  intro.forEach(line => { doc.text(line, M, y); y += 6; });
+  y += 2;
+
+  // Récap
+  const col1 = M, col3 = W-M;
+
+  doc.setFont("helvetica","bold");
+  doc.text("Récapitulatif", M, y); y += 4;
+  doc.setDrawColor(...grid);
+  doc.roundedRect(M, y, W-2*M, chargesNum>0? 33 : 27, 2, 2, "S");
+
+  doc.setFont("helvetica","normal");
+  doc.text("Loyer", col1+3, y+7);
+  doc.text(fmtEuro(loyerNum), col3-3, y+7, {align:"right"});
+
+  if (chargesNum > 0){
+    doc.text("Charges", col1+3, y+13);
+    doc.text(fmtEuro(chargesNum), col3-3, y+13, {align:"right"});
+  }
+
+  doc.text("Montant attendu (loyer + charges)", col1+3, chargesNum>0? y+19 : y+13);
+  doc.text(fmtEuro(totalNum), col3-3, chargesNum>0? y+19 : y+13, {align:"right"});
+
+  doc.text("Échéance prévue", col1+3, chargesNum>0? y+25 : y+19);
+  doc.text(b.datePrevue ? new Date(b.datePrevue).toLocaleDateString("fr-FR") : "—", col3-3, chargesNum>0? y+25 : y+19, {align:"right"});
+
+  doc.text("Jours de retard (mois en cours)", col1+3, chargesNum>0? y+31 : y+25);
+  doc.text(String(daysLate(b) || "—"), col3-3, chargesNum>0? y+31 : y+25, {align:"right"});
+
+  y += chargesNum>0? 38 : 32;
+
+  // Corps
+  const corps = [
+    `Merci d'effectuer le paiement par le moyen habituel. À défaut de régularisation rapide,`,
+    `nous pourrions être amenés à engager des démarches plus formelles.`,
+    ``,
+    `En cas de difficulté passagère, contactez-nous rapidement pour convenir d'un aménagement.`,
+  ];
+  corps.forEach(line => { doc.text(line, M, y); y += 6; });
+  y += 4;
+
+  // Pied/infos
+  const p2 = profile || {};
+  const footer = [
+    p2.iban ? `IBAN : ${p2.iban}` : null,
+    p2.siren ? `SIREN/SIRET : ${p2.siren}` : null,
+    p2.email ? `Email : ${p2.email}` : null
+  ].filter(Boolean).join("   |   ");
+
+  const lieu = (p2.ville || "");
+  const dateStr = new Date().toLocaleDateString("fr-FR");
+  doc.text(`Fait à ${lieu || "__________"}, le ${dateStr}.`, M, y+6);
+
+  if(p2.signatureDataUrl){
+    try{
+      doc.text("Signature du bailleur :", M, y+18);
+      doc.addImage(p2.signatureDataUrl, "PNG", M+55, y+10, 45, 20);
+    }catch(e){}
+  }
+
+  if(footer){
+    doc.setDrawColor(...main);
+    doc.line(M, H-22, W-M, H-22);
+    doc.setFontSize(10);
+    doc.text(footer, W/2, H-15, {align:"center"});
+  }
+
+  const filename = `relance_${(b.locataire||'locataire').toString().toLowerCase().replace(/\s+/g,'-')}_${(b.datePrevue? new Date(b.datePrevue).toLocaleDateString('fr-FR',{month:'short'}) : 'mois')}_${(b.datePrevue? new Date(b.datePrevue).getFullYear() : new Date().getFullYear())}.pdf`;
+  doc.save(filename);
+}
+
+/* ========= PDF MISE EN DEMEURE (pro) ========= */
+function generateMDPDF(b, profile){
+  const { jsPDF } = window.jspdf || {};
+  if(!jsPDF){ alert('Impossible de générer le PDF (jsPDF manquant).'); return; }
+  const p = profile || {};
+  const doc = new jsPDF({unit:'mm', format:'a4'});
+  const M = 16, W = 210, H = 297;
+
+  // Couleurs
+  const main = [220,38,38]; // rouge
+  const text = [17,24,39];
+  const grid = [229,231,235];
+
+  const loyerNum   = Number(b.loyer)||0;
+  const chargesNum = Number(b.charges)||0;
+  const unMois     = loyerNum + chargesNum;
+  const cumul      = (typeof totalDue==='function' ? totalDue(b) : unMois);
+  const montantMD  = Math.max(cumul, unMois); // si pas en retard, au moins 1 mois
+  const baseDate   = b.datePrevue ? new Date(b.datePrevue) : new Date();
+  const periodeStr = (()=>{
+    const d1 = new Date(baseDate.getFullYear(), baseDate.getMonth(), 1);
+    const d2 = new Date(baseDate.getFullYear(), baseDate.getMonth()+1, 0);
+    const fmt = d=> d.toLocaleDateString("fr-FR");
+    return `${fmt(d1)} au ${fmt(d2)}`;
+  })();
+  const echeanceTxt = b.datePrevue ? new Date(b.datePrevue).toLocaleDateString("fr-FR") : "—";
+
+  // Date limite = aujourd'hui + 8 jours
+  const dl = new Date(); dl.setDate(dl.getDate()+8);
+  const dateLimite = dl.toLocaleDateString('fr-FR');
+
+  // Bandeau
+  doc.setFillColor(...main);
+  doc.rect(0, 0, W, 28, "F");
+  doc.setTextColor(255,255,255);
+  doc.setFont("helvetica","bold"); doc.setFontSize(18);
+  doc.text("MISE EN DEMEURE DE PAYER", M, 17);
+  doc.setFontSize(11);
+  doc.text("Lettre recommandée avec AR (LRAR)", W-M, 17, {align:"right"});
+
+  // Corps
+  doc.setTextColor(...text);
+  let y = 36;
+
+  // Coordonnées
+  doc.setFont("helvetica","bold"); doc.setFontSize(12);
+  doc.text("Bailleur", M, y);
+  doc.text("Locataire", W/2, y);
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+  y += 6;
+
+  const bailleurLignes = [
+    p.nom || "",
+    [p.adresse1, p.adresse2].filter(Boolean).join(", "),
+    [p.cp, p.ville].filter(Boolean).join(" "),
+    p.email ? `Email : ${p.email}` : "",
+    p.tel ? `Tél : ${p.tel}` : ""
+  ].filter(Boolean);
+
+  const locLignes = [
+    b.locataire || "",
+    (b.bien || ""),
+    `Échéance contractuelle : ${echeanceTxt}`
+  ].filter(Boolean);
+
+  bailleurLignes.forEach((l,i)=> doc.text(l, M, y + i*6));
+  locLignes   .forEach((l,i)=> doc.text(l, W/2, y + i*6));
+  y += Math.max(bailleurLignes.length, locLignes.length)*6 + 8;
+
+  // Références bail
+  doc.setFont("helvetica","bold"); doc.setFontSize(12);
+  doc.text("Références du bail", M, y); y+=4;
+  doc.setDrawColor(...grid);
+  doc.roundedRect(M, y, W-2*M, (chargesNum>0? 27:21), 2, 2, "S");
+  doc.setFont("helvetica","normal"); doc.setFontSize(11);
+
+  let yy = y+7;
+  doc.text("Loyer mensuel", M+3, yy);                 doc.text(fmtEuro(loyerNum), W-M-3, yy, {align:"right"}); yy+=6;
+  if (chargesNum>0){ doc.text("Charges mensuelles", M+3, yy); doc.text(fmtEuro(chargesNum), W-M-3, yy, {align:"right"}); yy+=6; }
+  doc.text("Période concernée", M+3, yy);            doc.text(periodeStr,        W-M-3, yy, {align:"right"}); yy+=6;
+  doc.text("Total dû (cumul mois impayés)", M+3, yy);doc.text(fmtEuro(montantMD),W-M-3, yy, {align:"right"});
+  y += (chargesNum>0? 33:27);
+
+  // Objet juridique
+  y += 6;
+  doc.setFont("helvetica","bold");
+  doc.text("Objet : Mise en demeure de payer sous 8 jours", M, y); y+=8;
+  doc.setFont("helvetica","normal");
+
+  const parag = [
+    `Nous vous mettons formellement en demeure de régler la somme de ${fmtEuro(montantMD)} au titre du loyer`,
+    `et, le cas échéant, des charges, pour la période indiquée ci-dessus, restée impayée à ce jour.`,
+    ``,
+    `Vous disposez d’un délai de 8 jours à compter de la réception de la présente (soit jusqu’au ${dateLimite})`,
+    `pour effectuer le paiement intégral par le moyen habituel ou par virement sur l’IBAN ci-dessous.`,
+    ``,
+    `À défaut de régularisation dans le délai imparti, nous nous réservons le droit d’engager sans autre avis :`,
+    `• la saisine d’un commissaire de justice (huissier) pour les actes nécessaires ;`,
+    `• toute procédure contentieuse utile devant la juridiction compétente ;`,
+    `• la demande d’intérêts de retard et de prise en charge des frais conformément au droit applicable.`,
+  ];
+  parag.forEach(line=>{ doc.text(line, M, y); y+=6; });
+
+  // Coordonnées paiement
+  const footer = [
+    p.iban ? `IBAN : ${p.iban}` : null,
+    p.siren ? `SIREN/SIRET : ${p.siren}` : null,
+    p.email ? `Email : ${p.email}` : null
+  ].filter(Boolean).join("   |   ");
+
+  y += 4;
+  const lieu = (p.ville || "");
+  const dateStr = new Date().toLocaleDateString("fr-FR");
+  doc.text(`Fait à ${lieu || "__________"}, le ${dateStr}.`, M, y+6);
+
+  if(p.signatureDataUrl){
+    try{
+      doc.text("Signature du bailleur :", M, y+18);
+      doc.addImage(p.signatureDataUrl, "PNG", M+55, y+10, 45, 20);
+    }catch(e){}
+  }
+
+  if(footer){
+    doc.setDrawColor(...main);
+    doc.line(M, H-22, W-M, H-22);
+    doc.setFontSize(10);
+    doc.text(footer, W/2, H-15, {align:"center"});
+  }
+
+  const filename = `mise_en_demeure_${(b.locataire||'locataire').toString().toLowerCase().replace(/\s+/g,'-')}_${(b.datePrevue? new Date(b.datePrevue).toLocaleDateString('fr-FR',{month:'short'}) : 'mois')}_${(b.datePrevue? new Date(b.datePrevue).getFullYear() : new Date().getFullYear())}.pdf`;
+  doc.save(filename);
+}
+
+/* ========= Quittance ========= */
+function openQ(b){
+  currentId=b.id;
+  const mois = today().toLocaleDateString('fr-FR',{month:'long',year:'numeric'}).toUpperCase();
+  qPrev.textContent = `QUITTANCE DE LOYER — ${mois}
+
+Bien : ${b.bien}
+Locataire : ${b.locataire}
+
+Loyer : ${fmtEuro(b.loyer)}  |  Charges : ${fmtEuro(b.charges||0)}
+
+Fait le ${today().toLocaleDateString('fr-FR')}.`;
+  modQ.style.display='flex';
+}
+qCancel.onclick=()=>{modQ.style.display='none';currentId=null};
+qSend.onclick=()=>{
+  const arr=readAll(); const i=arr.findIndex(x=>x.id===currentId);
+  if(i>=0){
+    arr[i].paiement='Paye';
+    arr[i].lastPaidPeriod=curPeriod();
+    arr[i].relanceEnvoyee=false;
+    arr[i].miseEnDemeureEnvoyee=false;
+    arr[i].huissierTransmis=false;
+    arr[i].avocatTransmis=false;
+    arr[i].retardDepuis=null;
+    writeAll(arr);
+    try{ generateQuittancePDF(arr[i], readProfile()); }catch(e){ console.error(e); }
+  }
+  alert('Quittance envoyée.');
+  modQ.style.display='none';currentId=null;render();
+};
+
+/* ========= Relance ========= */
+function openR(b){
+  currentId=b.id;
+  const moisLong = today().toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  rPrev.textContent =
+`OBJET : Relance de paiement – Loyer ${moisLong}
+
+Madame, Monsieur ${b.locataire},
+
+Sauf erreur de notre part, nous n'avons pas encore reçu le règlement de votre loyer relatif au logement situé :
+${b.bien}
+
+Montant attendu (loyer + charges) : ${fmtEuro((Number(b.loyer)||0)+(Number(b.charges)||0))}
+Échéance prévue : ${b.datePrevue || '—'}
+
+Merci de bien vouloir régulariser cette situation dans les plus brefs délais
+ou de nous informer si le paiement a déjà été effectué.
+
+Cordialement,
+Votre bailleur`;
+  modR.style.display='flex';
+}
+rCancel.onclick=()=>{modR.style.display='none';currentId=null};
+rSend.onclick=()=>{
+  const arr=readAll(); const i=arr.findIndex(x=>x.id===currentId);
+  if(i>=0){
+    arr[i].paiement='Retard';
+    arr[i].relanceEnvoyee=true;
+    if (!arr[i].retardDepuis) arr[i].retardDepuis = new Date().toISOString();
+    writeAll(arr);
+    try{ generateRelancePDF(arr[i], readProfile()); }catch(e){ console.error(e); }
+  }
+  alert('Relance envoyée.');
+  modR.style.display='none';currentId=null;render();
+};
+
+/* ========= Mise en demeure ========= */
+function openMD(b){
+  currentId=b.id;
+  const l = Number(b.loyer)||0, c = Number(b.charges)||0;
+  const unMois = l + c;
+  const cumul  = (typeof totalDue==='function' ? totalDue(b) : unMois);
+  const montant = Math.max(cumul, unMois); // au minimum 1 mois
+  const base = b.datePrevue ? new Date(b.datePrevue) : new Date();
+  const d1 = new Date(base.getFullYear(), base.getMonth(), 1);
+  const d2 = new Date(base.getFullYear(), base.getMonth()+1, 0);
+  const fmt = d=> d.toLocaleDateString("fr-FR");
+  const periodeStr = `du ${fmt(d1)} au ${fmt(d2)}`;
+
+  const dl = new Date(); dl.setDate(dl.getDate()+8);
+  const dateLimite = dl.toLocaleDateString('fr-FR');
+
+  mdPrev.textContent =
+`OBJET : MISE EN DEMEURE (LRAR)
+
+Locataire : ${b.locataire}
+Bien : ${b.bien}
+
+Références :
+- Loyer mensuel : ${fmtEuro(l)}
+- Charges mensuelles : ${fmtEuro(c)}
+- Période concernée : ${periodeStr}
+- Total dû (cumul mois impayés) : ${fmtEuro(montant)}
+
+Nous vous mettons formellement en demeure de payer la somme de ${fmtEuro(montant)}
+dans un délai de 8 jours à compter de la réception de la présente (au plus tard le ${dateLimite}).
+
+À défaut de régularisation, nous nous réservons le droit d’engager sans autre avis
+les démarches nécessaires auprès d’un commissaire de justice (huissier) et/ou la
+saisine de la juridiction compétente, ainsi que la demande d’intérêts de retard.`;
+  modMD.style.display='flex';
+}
+mdCancel.onclick=()=>{modMD.style.display='none';currentId=null};
+mdSend.onclick=()=>{
+  const arr=readAll(); const i=arr.findIndex(x=>x.id===currentId);
+  if(i>=0){
+    arr[i].miseEnDemeureEnvoyee=true;
+    if (!arr[i].retardDepuis) arr[i].retardDepuis = new Date().toISOString(); // trace interne
+    writeAll(arr);
+    try{ generateMDPDF(arr[i], readProfile()); }catch(e){ console.error(e); }
+  }
+  alert('Mise en demeure générée (PDF).');
+  modMD.style.display='none';currentId=null;render();
+};
+
+/* ========= Édition ========= */
+const modEdit = document.getElementById('mod-edit');
+const eForm = document.getElementById('edit-form');
+const eBien = document.getElementById('e-bien');
+const eLoc = document.getElementById('e-locataire');
+const eLoyer = document.getElementById('e-loyer');
+const eCharges = document.getElementById('e-charges');
+const eDate = document.getElementById('e-date');
+const eCancel = document.getElementById('e-cancel');
+
+function openEdit(b){
+  currentEditId = b.id;
+  eBien.value = b.bien || '';
+  eLoc.value = b.locataire || '';
+  eLoyer.value = b.loyer || 0;
+  eCharges.value = b.charges || 0;
+  eDate.value = b.datePrevue || '';
+  modEdit.style.display = 'flex';
+}
+eCancel.onclick = ()=>{ modEdit.style.display='none'; currentEditId=null; };
+modEdit.addEventListener('click', (ev)=>{ if(ev.target===modEdit){ eCancel.click(); }});
+eForm.addEventListener('submit', (ev)=>{
+  ev.preventDefault();
+  const arr = readAll();
+  const i = arr.findIndex(x=>x.id===currentEditId);
+  if (i>=0){
+    arr[i].bien = eBien.value.trim();
+    arr[i].locataire = eLoc.value.trim();
+    arr[i].loyer = Number(eLoyer.value||0);
+    arr[i].charges = Number(eCharges.value||0);
+    arr[i].datePrevue = eDate.value;
+    writeAll(arr);
+  }
+  modEdit.style.display='none';
+  currentEditId=null;
+  render();
+});
+
+/* ========= Click actions ========= */
+document.getElementById('tbody').addEventListener('click',e=>{
+  const tr=e.target.closest('tr');if(!tr)return;
+  const id=tr.dataset.id;
+  const arr=readAll(); const b=arr.find(x=>x.id===id); if(!b)return;
+
+  if(e.target.classList.contains('act-pay')){ if(!isLocked(b)) openQ(b); }
+  if(e.target.classList.contains('act-retard')){ if(!isLocked(b)) openR(b); }
+  if(e.target.classList.contains('act-md')){ if(!isLocked(b)) openMD(b); }
+  if(e.target.classList.contains('act-edit')){ openEdit(b); }
+  if(e.target.classList.contains('act-del')){
+    if(confirm('Supprimer ?')){ writeAll(arr.filter(x=>x.id!==id)); render(); }
+  }
+});
+
+/* ========= Start ========= */
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('periode').textContent = curPeriod();
+  render();
+  updateProfilBtn();
+});
+</script>
+</body>
+</html>

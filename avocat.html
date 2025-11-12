@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>ImmoBoard — Dossier avocat / tribunal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;background:#f6f8fb;color:#111827}
+  .wrap{max-width:900px;margin:28px auto;padding:0 16px}
+  h1{margin:0 0 12px}
+  .btn{border:0;border-radius:8px;padding:8px 12px;cursor:pointer}
+  .btn.blue{background:#0ea5e9;color:#fff}
+  .btn.gray{background:#e5e7eb}
+  .btn.red{background:#ef4444;color:#fff}
+  .bar{display:flex;gap:8px;align-items:center;margin:10px 0 16px}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin:10px 0}
+  .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:10px}
+  .col-6{grid-column:span 6}.col-12{grid-column:span 12}
+  label{font-weight:600;display:block;margin-bottom:6px}
+  input,textarea{width:100%;padding:8px;border:1px solid #dcdcdc;border-radius:8px}
+  .muted{color:#6b7280}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Dossier avocat / tribunal</h1>
+  <div class="bar">
+    <button class="btn gray" id="back">← Retour aux baux</button>
+    <button class="btn blue" id="send">Transmettre au tribunal / avocat</button>
+  </div>
+
+  <div id="summary" class="card">Chargement…</div>
+
+  <div class="card">
+    <div class="grid">
+      <div class="col-6">
+        <label>Référence interne (facultatif)</label>
+        <input id="ref" placeholder="Ex: DOSS-2025-001">
+      </div>
+      <div class="col-6">
+        <label>Greffe / Juridiction (facultatif)</label>
+        <input id="jur" placeholder="Ex: TJ Paris">
+      </div>
+      <div class="col-12">
+        <label>Notes (facultatif)</label>
+        <textarea id="notes" rows="4" placeholder="Résumé de la situation, étapes déjà réalisées (relance, mise en demeure, huissier)…"></textarea>
+      </div>
+      <div class="col-12">
+        <label>Pièces à joindre (simulation)</label>
+        <input id="files" type="file" multiple>
+        <p class="muted">⚠️ Aucun envoi réel pour l’instant (pas de serveur). C’est juste pour préparer la liste.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY='immo_biens';
+const params=new URLSearchParams(location.search);
+const bailId=params.get('id');
+const backUrl='baux_min.html';
+
+function readAll(){ try{return JSON.parse(localStorage.getItem(KEY)||'[]')}catch{return[]} }
+function writeAll(a){ localStorage.setItem(KEY, JSON.stringify(a||[])) }
+
+function fmtEuro(n){ return (Number(n)||0).toLocaleString('fr-FR')+' €'; }
+
+function load(){
+  const arr=readAll();
+  const b=arr.find(x=>x.id===bailId);
+  const box=document.getElementById('summary');
+  if(!b){
+   box.innerHTML='<span class="muted">Aucun bail trouvé. <a href="baux_min.html">Retour</a></span>';
+   return;
+  }
+  box.innerHTML = `
+    <strong>Bien :</strong> ${b.bien||''}<br>
+    <strong>Locataire :</strong> ${b.locataire||''}<br>
+    <strong>Loyer :</strong> ${fmtEuro(b.loyer)}<br>
+    <strong>Échéance :</strong> ${b.datePrevue||'—'}<br>
+    <strong>Statut actuel :</strong> ${b.avocatTransmis ? 'Dossier avocat transmis' :
+                                       b.huissierTransmis ? 'Dossier huissier transmis' :
+                                       b.miseEnDemeureEnvoyee ? 'Mise en demeure envoyée' :
+                                       b.paiement==='Retard' ? 'Retard' :
+                                       b.paiement==='Paye' ? 'Payé' : 'À valider'}
+  `;
+}
+
+document.getElementById('back').onclick=()=>{ location.href=backUrl; };
+
+document.getElementById('send').onclick=()=>{
+  const arr=readAll();
+  const i=arr.findIndex(x=>x.id===bailId);
+  if(i<0){ alert('Bail introuvable.'); location.href=backUrl; return; }
+
+  // On marque le dossier avocat transmis (et on verrouille la voie “contentieux” précédente)
+  arr[i].avocatTransmis = true;
+  // on peut conserver les traces précédentes mais elles n’afficheront plus (statut prioritaire)
+  // si tu veux forcer un reset de retard/MD/huissier, décommente :
+  // arr[i].miseEnDemeureEnvoyee = true;
+  // arr[i].huissierTransmis = true;
+
+  writeAll(arr);
+
+  alert('Dossier avocat / tribunal marqué comme transmis (simulation).');
+  location.href = backUrl;
+};
+
+document.addEventListener('DOMContentLoaded',load);
+</script>
+</body>
+</html>
